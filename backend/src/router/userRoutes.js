@@ -18,4 +18,10 @@ router.put('/:id', userController.updateUser);
 // DELETE /api/users/:id - Delete user
 router.delete('/:id', userController.deleteUser);
 
+// GET /api/users/paginated - Get users with pagination
+router.get('/paginated/list', userController.getUsersWithPagination);
+
+// GET /api/users/count - Get user count
+router.get('/count/total', userController.getUserCount);
+
 module.exports = router;

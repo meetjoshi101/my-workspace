@@ -1,9 +1,10 @@
 const userRepository = require('../repositories/userRepository');
+const { ValidationError, UniqueConstraintError } = require('sequelize');
 
 class UserService {
-    async getAllUsers() {
+    async getAllUsers(options = {}) {
         try {
-            return await userRepository.findAll();
+            return await userRepository.findAll(options);
         } catch (error) {
             throw new Error(`Failed to get users: ${error.message}`);
         }
@@ -25,19 +26,22 @@ class UserService {
         try {
             const { name, email } = userData;
             
-            // Validate input
+            // Basic validation
             if (!name || !email) {
                 throw new Error('Name and email are required');
             }
 
-            // Check if user already exists
-            const existingUser = await userRepository.findByEmail(email);
-            if (existingUser) {
-                throw new Error('User with this email already exists');
-            }
-
             return await userRepository.create({ name, email });
         } catch (error) {
+            if (error instanceof ValidationError) {
+                const messages = error.errors.map(err => err.message);
+                throw new Error(`Validation error: ${messages.join(', ')}`);
+            }
+            
+            if (error instanceof UniqueConstraintError) {
+                throw new Error('User with this email already exists');
+            }
+            
             throw new Error(`Failed to create user: ${error.message}`);
         }
     }
@@ -46,7 +50,7 @@ class UserService {
         try {
             const { name, email } = userData;
             
-            // Validate input
+            // Basic validation
             if (!name || !email) {
                 throw new Error('Name and email are required');
             }
@@ -54,14 +58,17 @@ class UserService {
             // Check if user exists
             await this.getUserById(id);
 
-            // Check if email is already taken by another user
-            const existingUser = await userRepository.findByEmail(email);
-            if (existingUser && existingUser.id !== parseInt(id)) {
-                throw new Error('Email is already taken by another user');
-            }
-
             return await userRepository.update(id, { name, email });
         } catch (error) {
+            if (error instanceof ValidationError) {
+                const messages = error.errors.map(err => err.message);
+                throw new Error(`Validation error: ${messages.join(', ')}`);
+            }
+            
+            if (error instanceof UniqueConstraintError) {
+                throw new Error('Email is already taken by another user');
+            }
+            
             throw new Error(`Failed to update user: ${error.message}`);
         }
     }
@@ -78,6 +85,22 @@ class UserService {
             return { message: 'User deleted successfully' };
         } catch (error) {
             throw new Error(`Failed to delete user: ${error.message}`);
+        }
+    }
+
+    async getUsersWithPagination(page = 1, limit = 10, filters = {}) {
+        try {
+            return await userRepository.findWithPagination(page, limit, filters);
+        } catch (error) {
+            throw new Error(`Failed to get users with pagination: ${error.message}`);
+        }
+    }
+
+    async getUserCount(filters = {}) {
+        try {
+            return await userRepository.count(filters);
+        } catch (error) {
+            throw new Error(`Failed to get user count: ${error.message}`);
         }
     }
 }

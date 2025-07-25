@@ -90,6 +90,40 @@ class UserController {
             });
         }
     }
+
+    async getUsersWithPagination(req, res) {
+        try {
+            const page = parseInt(req.query.page) || 1;
+            const limit = parseInt(req.query.limit) || 10;
+            const result = await userService.getUsersWithPagination(page, limit);
+            
+            res.json({
+                success: true,
+                data: result.users,
+                pagination: result.pagination
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                error: error.message
+            });
+        }
+    }
+
+    async getUserCount(req, res) {
+        try {
+            const count = await userService.getUserCount();
+            res.json({
+                success: true,
+                count: count
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                error: error.message
+            });
+        }
+    }
 }
 
 module.exports = new UserController();

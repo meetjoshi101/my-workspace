@@ -1,43 +1,30 @@
-const sqliteConnection = require('./connection/sqlite');
+const sequelizeConnection = require('./connection/sequelize');
+const models = require('./models');
 
 class DatabaseManager {
     constructor() {
-        this.connection = sqliteConnection;
+        this.connection = sequelizeConnection;
+        this.models = models;
         this.isConnected = false;
     }
 
     async initialize() {
         try {
+            // Connect to database
             await this.connection.connect();
-            this.isConnected = true;
-            console.log('Database initialized successfully');
             
-            // Run initial setup/migrations if needed
-            await this.createTables();
+            // Initialize models
+            await this.models.initialize();
+            
+            // Sync database (create tables if they don't exist)
+            await this.connection.sync({ alter: true });
+            
+            this.isConnected = true;
+            console.log('Database with Sequelize ORM initialized successfully');
             
             return true;
         } catch (error) {
             console.error('Failed to initialize database:', error);
-            throw error;
-        }
-    }
-
-    async createTables() {
-        try {
-            // Example table creation - you can modify this based on your needs
-            await this.connection.run(`
-                CREATE TABLE IF NOT EXISTS users (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    name TEXT NOT NULL,
-                    email TEXT UNIQUE NOT NULL,
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-                )
-            `);
-
-            console.log('Tables created successfully');
-        } catch (error) {
-            console.error('Error creating tables:', error);
             throw error;
         }
     }
@@ -47,6 +34,13 @@ class DatabaseManager {
             throw new Error('Database not connected. Call initialize() first.');
         }
         return this.connection;
+    }
+
+    getModels() {
+        if (!this.isConnected) {
+            throw new Error('Database not connected. Call initialize() first.');
+        }
+        return this.models.getModels();
     }
 
     async close() {

@@ -27,16 +27,44 @@ app.get('/health', (req, res) => {
 // Database test route
 app.get('/db-test', async (req, res) => {
     try {
-        const db = databaseManager.getConnection();
-        const users = await db.all('SELECT * FROM users');
+        const models = databaseManager.getModels();
+        const users = await models.User.findAll();
         res.json({ 
-            status: 'Database connected', 
+            status: 'Database connected with Sequelize ORM', 
             users: users,
+            userCount: users.length,
             timestamp: new Date().toISOString() 
         });
     } catch (error) {
         res.status(500).json({ 
             error: 'Database error', 
+            message: error.message 
+        });
+    }
+});
+
+// ORM info route
+app.get('/orm-info', async (req, res) => {
+    try {
+        const models = databaseManager.getModels();
+        const sequelize = models.sequelize;
+        
+        // Get database info
+        const dbInfo = {
+            dialect: sequelize.getDialect(),
+            database: sequelize.getDatabaseName(),
+            models: Object.keys(sequelize.models),
+            version: require('sequelize/package.json').version
+        };
+        
+        res.json({
+            status: 'Sequelize ORM Active',
+            info: dbInfo,
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        res.status(500).json({ 
+            error: 'ORM error', 
             message: error.message 
         });
     }

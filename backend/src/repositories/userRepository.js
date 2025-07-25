@@ -2,20 +2,24 @@ const databaseManager = require('../database/database');
 
 class UserRepository {
     constructor() {
-        this.db = null;
+        this.User = null;
     }
 
-    getDatabase() {
-        if (!this.db) {
-            this.db = databaseManager.getConnection();
+    getModel() {
+        if (!this.User) {
+            const models = databaseManager.getModels();
+            this.User = models.User;
         }
-        return this.db;
+        return this.User;
     }
 
-    async findAll() {
+    async findAll(options = {}) {
         try {
-            const db = this.getDatabase();
-            const users = await db.all('SELECT * FROM users ORDER BY created_at DESC');
+            const User = this.getModel();
+            const users = await User.findAll({
+                order: [['created_at', 'DESC']],
+                ...options
+            });
             return users;
         } catch (error) {
             console.error('Error finding all users:', error);
@@ -25,8 +29,8 @@ class UserRepository {
 
     async findById(id) {
         try {
-            const db = this.getDatabase();
-            const user = await db.get('SELECT * FROM users WHERE id = ?', [id]);
+            const User = this.getModel();
+            const user = await User.findByPk(id);
             return user;
         } catch (error) {
             console.error('Error finding user by id:', error);
@@ -36,8 +40,8 @@ class UserRepository {
 
     async findByEmail(email) {
         try {
-            const db = this.getDatabase();
-            const user = await db.get('SELECT * FROM users WHERE email = ?', [email]);
+            const User = this.getModel();
+            const user = await User.findOne({ where: { email } });
             return user;
         } catch (error) {
             console.error('Error finding user by email:', error);
@@ -47,15 +51,9 @@ class UserRepository {
 
     async create(userData) {
         try {
-            const { name, email } = userData;
-            const db = this.getDatabase();
-            
-            const result = await db.run(
-                'INSERT INTO users (name, email) VALUES (?, ?)',
-                [name, email]
-            );
-            
-            return await this.findById(result.id);
+            const User = this.getModel();
+            const user = await User.create(userData);
+            return user;
         } catch (error) {
             console.error('Error creating user:', error);
             throw error;
@@ -64,13 +62,15 @@ class UserRepository {
 
     async update(id, userData) {
         try {
-            const { name, email } = userData;
-            const db = this.getDatabase();
+            const User = this.getModel();
+            const [updatedRowsCount] = await User.update(userData, {
+                where: { id },
+                returning: true
+            });
             
-            await db.run(
-                'UPDATE users SET name = ?, email = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-                [name, email, id]
-            );
+            if (updatedRowsCount === 0) {
+                throw new Error('User not found');
+            }
             
             return await this.findById(id);
         } catch (error) {
@@ -81,11 +81,52 @@ class UserRepository {
 
     async delete(id) {
         try {
-            const db = this.getDatabase();
-            const result = await db.run('DELETE FROM users WHERE id = ?', [id]);
-            return result.changes > 0;
+            const User = this.getModel();
+            const deletedRowsCount = await User.destroy({
+                where: { id }
+            });
+            
+            return deletedRowsCount > 0;
         } catch (error) {
             console.error('Error deleting user:', error);
+            throw error;
+        }
+    }
+
+    async count(where = {}) {
+        try {
+            const User = this.getModel();
+            const count = await User.count({ where });
+            return count;
+        } catch (error) {
+            console.error('Error counting users:', error);
+            throw error;
+        }
+    }
+
+    async findWithPagination(page = 1, limit = 10, where = {}) {
+        try {
+            const User = this.getModel();
+            const offset = (page - 1) * limit;
+            
+            const { rows: users, count: total } = await User.findAndCountAll({
+                where,
+                limit,
+                offset,
+                order: [['created_at', 'DESC']]
+            });
+            
+            return {
+                users,
+                pagination: {
+                    page,
+                    limit,
+                    total,
+                    totalPages: Math.ceil(total / limit)
+                }
+            };
+        } catch (error) {
+            console.error('Error finding users with pagination:', error);
             throw error;
         }
     }
